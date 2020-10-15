@@ -1,2 +1,2 @@
 # RayTracer
-Ray Tracer from scracth in C++ 
+Ray Tracer from scratch in C++ 
