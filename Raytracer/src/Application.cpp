@@ -3,14 +3,21 @@
 #include "hitable_list.h"
 #include "Sphere.h"
 #include "float.h"
-#include <random>
+#include "material.h"
 #include "camera.h"
+#include "lambertian.h"
+#include "metal.h"
 
-
-vec3 color(const ray& r, hitable* world) {
+vec3 color(const ray& r, hitable* world, int depth) {
 	hit_record rec;
-	if (world->hit(r, 0.0f, std::numeric_limits<float>::max(), rec)) {
-		return 0.5f * vec3(rec.normal.x() + 1, rec.normal.y() + 1, rec.normal.z() + 1);
+	if (world->hit(r, 0.001f, std::numeric_limits<float>::max(), rec)) 
+	{
+		ray scattered;
+		vec3 attenuation;
+		if (depth < 50 && rec.mat_ptr->scatter(r, rec, attenuation, scattered)) {
+			return attenuation * color(scattered, world, depth + 1);
+		}
+		else return vec3(0, 0, 0);
 	}
 	
 	else {
@@ -36,18 +43,17 @@ int main() {
 	//Number of samples for antialiasing for each pixel
 	int ns = 100;
 
-	//0 1 random real generator
-	std::random_device rd;
-	std::mt19937 gen(rd());
-	std::uniform_real_distribution<> dis(0, 1);//uniform distribution between 0 and 1
+
 	
 	
 	ppmImage << "P3\n" << nx << " " << ny << "\n255\n";
 
-	hitable* list[2];
-	list[0] = new sphere(vec3(0, 0, -1), 0.5f);
-	list[1] = new sphere(vec3(0, -100.5f, -1), 100);
-	hitable* world = new hitable_list(list, 2);
+	hitable* list[4];
+	list[0] = new sphere(vec3(0, 0, -1), 0.5f, new lambertian(vec3(0.8f, 0.3f, 0.3f)));
+	list[1] = new sphere(vec3(0, -100.5f, -1), 100, new lambertian(vec3(0.8f, 0.8f, 0.0f)));
+	list[2] = new sphere(vec3(1, 0, -1), 0.5f, new metal(vec3(0.8f, 0.6f, 0.2f)));
+	list[3] = new sphere(vec3(-1, 0, -1), 0.5f, new metal(vec3(0.8f, 0.8f, 0.8f)));
+	hitable* world = new hitable_list(list, 4);
 
 	camera cam;
 	
@@ -61,10 +67,12 @@ int main() {
 				float v = float(j + dis(gen)) / float(ny);
 				ray r = cam.get_ray(u, v);
 				vec3 p = r.point_at_parameter(2.0f);
-				col += color(r, world);
+				col += color(r, world,0);
 			}
 			
 			col /= float(ns);
+			//Gamma correction, gamma 2
+			col = vec3(sqrt(col[0]), sqrt(col[1]), sqrt(col[2]));
 			int ir = int(255.99f * col[0]);
 			int ig = int(255.99f * col[1]);
 			int ib = int(255.99f * col[2]);
